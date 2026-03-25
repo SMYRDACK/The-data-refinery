@@ -106,7 +106,7 @@ docker-compose up
 
 **Powodzenia! 🚀🔥**
 
----
+
 
 # 🇬🇧 English version
 

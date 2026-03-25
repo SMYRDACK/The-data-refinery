@@ -94,6 +94,18 @@ Projekt zostanie uznany za kompletny wyłącznie po dostarczeniu wszystkich poni
 docker-compose up
 ```
 
+## 📌 6. Zasady oceny repozytorium (ważne!)
+
+- 📂 **Ocenie podlega wyłącznie gałąź `master`**
+- 🕒 **Wymagany jest widoczny postęp prac w commitach**
+  - commity powinny być dodawane na bieżąco w trakcie pracy
+  - unikać wrzucania całego projektu „na raz” tuż przed końcem
+- 🔍 Historia repozytorium będzie brana pod uwagę przy ocenie
+
+---
+
+**Powodzenia! 🚀🔥**
+
 ---
 
 # 🇬🇧 English version
@@ -167,7 +179,19 @@ Teams must design and implement a solution addressing the following:
 
 ---
 
-## 🐳 Nice to Have  
+## 🐳 5. Nice to Have  
 ```bash
 docker-compose up
 ```
+
+## 📌 6. Repository Evaluation Rules (Important!)
+
+- 📂 **Only the `master` branch will be evaluated**
+- 🕒 **Visible progress in commits is required**
+  - commits should be pushed regularly during development
+  - avoid submitting the entire project at the last minute
+- 🔍 Repository history will be taken into account during evaluation
+
+---
+
+**Good luck! 🚀🔥**

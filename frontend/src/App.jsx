@@ -1,19 +1,52 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import axios from 'axios'
 import './App.css'
 
 function App() {
   const [file, setFile] = useState(null)
   const [status, setStatus] = useState({ type: 'idle', message: '' })
-  const [responseData, setResponseData] = useState(null)
+  const [fileList, setFileList] = useState([])
   const [kaijuMode, setKaijuMode] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef(null)
+
+  const fetchFiles = async () => {
+    try {
+      const response = await axios.get('http://localhost:8000/api/files')
+      const files = response.data.files || response.data || []
+      setFileList(Array.isArray(files) ? files : [])
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  useEffect(() => {
+    fetchFiles()
+  }, [])
 
   const handleFileChange = (e) => {
     if (e.target.files?.length) {
       setFile(e.target.files[0])
       setStatus({ type: 'idle', message: '' })
-      setResponseData(null)
+    }
+  }
+
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e) => {
+    e.preventDefault()
+    setIsDragging(false)
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    setIsDragging(false)
+    if (e.dataTransfer.files?.length) {
+      setFile(e.dataTransfer.files[0])
+      setStatus({ type: 'idle', message: '' })
     }
   }
 
@@ -32,20 +65,20 @@ function App() {
     formData.append('file', file)
 
     setStatus({ type: 'loading', message: 'Analyzing payload...' })
-    setResponseData(null)
 
     try {
-      const response = await axios.post('http://localhost:8000/api/upload', formData, {
+      await axios.post('http://localhost:8000/api/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
       
       setStatus({ type: 'success', message: 'Payload verified and sanitized.' })
-      setResponseData(response.data)
+      setFile(null)
+      fetchFiles()
     } catch (error) {
       if (error.response?.status === 415) {
         setStatus({ type: 'error', message: `Critical Threat: ${error.response.data.detail}` })
       } else {
-        setStatus({ type: 'error', message: 'Connection timeout.' })
+        setStatus({ type: 'error', message: 'Connection timeout or server error.' })
       }
     }
   }
@@ -88,8 +121,11 @@ function App() {
         <main className="main-content">
           <div className="card upload-section">
             <div 
-              className={`drop-zone ${file ? 'has-file' : ''}`} 
+              className={`drop-zone ${file ? 'has-file' : ''} ${isDragging ? 'dragging' : ''}`} 
               onClick={triggerFileInput}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
             >
               <input 
                 type="file" 
@@ -103,9 +139,11 @@ function App() {
               </svg>
               
               {file ? (
-                <span className="file-name">{file.name} ({(file.size / 1024).toFixed(2)} KB)</span>
+                <span className="file-name">{file.name}</span>
               ) : (
-                <span className="placeholder-text">Insert payload or drag and drop</span>
+                <span className="placeholder-text">
+                  {isDragging ? 'Drop payload here!' : 'Insert payload or drag and drop'}
+                </span>
               )}
             </div>
 
@@ -124,17 +162,35 @@ function App() {
             )}
           </div>
 
-          {responseData && (
-            <div className="card results-section">
-              <div className="results-header">
-                <h3>Refinery Output</h3>
-                <span className="badge-success">Cleared</span>
-              </div>
-              <div className="json-viewer">
-                <pre>{JSON.stringify(responseData, null, 2)}</pre>
-              </div>
+          <div className="card results-section">
+            <div className="results-header">
+              <h3>Secured Vault</h3>
+              <span className="badge-success">{fileList.length} Files</span>
             </div>
-          )}
+            
+            {fileList.length > 0 ? (
+              <div className="table-responsive">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Filename</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fileList.map((f, index) => (
+                      <tr key={index}>
+                        <td className="file-cell">{f.filename || f}</td>
+                        <td><span className="status-badge safe">SANITIZED</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="empty-state">Vault is currently empty.</p>
+            )}
+          </div>
         </main>
       </div>
     </div>

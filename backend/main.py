@@ -1,9 +1,19 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 import filetype
 
 app = FastAPI(
     title="The Data Refinery API",
     version="0.1.0"
+)
+
+# konfiguracja cors zeby przegladarka nie blokowala zadan z frontendu
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # dozwolone formaty binarne

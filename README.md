@@ -193,3 +193,6 @@ docker-compose up
 ---
 
 **Good luck! 🚀🔥**
+
+
+Aktualizacja struktury z backendem

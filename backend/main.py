@@ -8,6 +8,9 @@ import shutil
 import os
 import re
 import base64
+import zipfile
+import io
+from fastapi.responses import StreamingResponse
 
 app = FastAPI(
     title="The Data Refinery API",
@@ -166,3 +169,23 @@ async def delete_file(filename: str):
         return {"status": "success", "message": f"File {filename} deleted"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+class BatchDownloadRequest(BaseModel):
+    filenames: list[str]
+
+@app.post("/api/download-batch")
+async def download_batch(request: BatchDownloadRequest):
+    zip_io = io.BytesIO()
+    
+    with zipfile.ZipFile(zip_io, mode='w', compression=zipfile.ZIP_DEFLATED) as zip_file:
+        for filename in request.filenames:
+            file_path = os.path.join(UPLOAD_DIR, filename)
+            if os.path.exists(file_path):
+                zip_file.write(file_path, arcname=filename)
+    
+    zip_io.seek(0)
+    return StreamingResponse(
+        zip_io, 
+        media_type="application/zip", 
+        headers={"Content-Disposition": "attachment; filename=secured_vault.zip"}
+    )

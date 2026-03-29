@@ -19,6 +19,9 @@ function App() {
   const [editTool, setEditTool] = useState('brush') 
   const [editColor, setEditColor] = useState('#000000')
   const [canvasSnapshot, setCanvasSnapshot] = useState(null)
+  
+  // NOWY STAN DO ŁADOWANIA ZIPA
+  const [isDownloadingZip, setIsDownloadingZip] = useState(false)
 
   const fileInputRef = useRef(null)
   const canvasRef = useRef(null)
@@ -250,6 +253,35 @@ function App() {
     window.open(`http://localhost:8000/api/download/${encodeURIComponent(filename)}?t=${timestamp}`, '_blank')
   }
 
+  const handleDownloadAll = async () => {
+    if (approvedFiles.size === 0) return;
+    
+    setIsDownloadingZip(true); // Ustawiamy stan ładowania na true
+    
+    try {
+      const filenames = Array.from(approvedFiles);
+      const response = await axios.post('http://localhost:8000/api/download-batch', {
+        filenames: filenames
+      }, {
+        responseType: 'blob' 
+      });
+      
+      const url = URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'secured_vault.zip';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(error);
+      alert("Failed to download ZIP archive.");
+    } finally {
+      setIsDownloadingZip(false); // Niezależnie od sukcesu/błędu odblokowujemy przycisk
+    }
+  };
+
   const handleExportJSON = () => {
     const batchId = crypto.randomUUID(); 
     
@@ -407,9 +439,19 @@ function App() {
                 )}
 
                 {approvedFiles.size > 0 && (
-                  <button className="btn-export" onClick={handleExportJSON}>
-                    Export JSON
-                  </button>
+                  <>
+                    <button 
+                      className="btn-export" 
+                      onClick={handleDownloadAll}
+                      disabled={isDownloadingZip}
+                      style={{ opacity: isDownloadingZip ? 0.7 : 1 }}
+                    >
+                      {isDownloadingZip ? 'Zipping...' : 'Download ZIP'}
+                    </button>
+                    <button className="btn-export" onClick={handleExportJSON}>
+                      Export JSON
+                    </button>
+                  </>
                 )}
               </div>
             </div>

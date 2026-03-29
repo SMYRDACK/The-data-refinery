@@ -334,7 +334,14 @@ body {
   max-width: 180px;
   position: relative;
   cursor: default;
+  overflow: visible; 
+}
+
+.file-cell span, .tooltip-trigger {
+  display: block;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .file-cell span, .tooltip-trigger {

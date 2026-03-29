@@ -122,13 +122,21 @@ function App() {
       const baseData = typeof fileData === 'string' ? { filename: fileData } : fileData
       
       return {
+        id: crypto.randomUUID(),
+        source_origin: "Gateway_Upload_Terminal_01",
         ...baseData,
-        operator_notes: fileNotes[fileName] || '',
+        operator_notes: fileNotes[fileName] || 'No extra context provided.',
         export_timestamp: new Date().toISOString()
       }
     })
 
-    const dataStr = JSON.stringify({ exported_vault: exportData }, null, 2)
+    const vaultSchema = {
+      schema_version: "1.0",
+      total_files: exportData.length,
+      exported_vault: exportData
+    }
+
+    const dataStr = JSON.stringify(vaultSchema, null, 2)
     const blob = new Blob([dataStr], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     

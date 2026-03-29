@@ -84,11 +84,8 @@ function App() {
       setFile(null)
       fetchFiles()
     } catch (error) {
-      if (error.response?.status === 415) {
-        setStatus({ type: 'error', message: `Critical Threat: ${error.response.data.detail}` })
-      } else {
-        setStatus({ type: 'error', message: 'Connection timeout or server error.' })
-      }
+      const errorMsg = error.response?.data?.detail || 'Connection error'
+      setStatus({ type: 'error', message: `Critical Threat: ${errorMsg}` })
     }
   }
 
@@ -193,7 +190,12 @@ function App() {
                       return (
                         <Fragment key={index}>
                           <tr>
-                            <td className="file-cell">{fileName}</td>
+                            {/* POPRAWIONA KOMÓRKA Z DYMKIEM */}
+                            <td className="file-cell">
+                              <span className="tooltip-trigger" data-tooltip={fileName}>
+                                {fileName}
+                              </span>
+                            </td>
                             <td><span className="status-badge safe">SANITIZED</span></td>
                             <td className="text-right actions-cell">
                               <button className="action-btn" onClick={() => toggleDetails(index)}>Details</button>
@@ -203,8 +205,25 @@ function App() {
                           {expandedRow === index && (
                             <tr className="details-row">
                               <td colSpan="3">
-                                <div className="details-content">
-                                  <pre>{JSON.stringify(f, null, 2)}</pre>
+                                <div className="details-pane">
+                                  <div className="details-grid">
+                                    <div className="detail-group">
+                                      <span className="detail-label">Analysis Status</span>
+                                      <span className="detail-value highlight">{f.status || 'CLEANED'}</span>
+                                    </div>
+                                    <div className="detail-group">
+                                      <span className="detail-label">Payload Size</span>
+                                      <span className="detail-value">{f.size_kb ? `${f.size_kb} KB` : 'N/A'}</span>
+                                    </div>
+                                    <div className="detail-group">
+                                      <span className="detail-label">Format</span>
+                                      <span className="detail-value">{f.extension || 'RAW'}</span>
+                                    </div>
+                                    <div className="detail-group">
+                                      <span className="detail-label">Security Check</span>
+                                      <span className="detail-value success-text">PASSED</span>
+                                    </div>
+                                  </div>
                                 </div>
                               </td>
                             </tr>

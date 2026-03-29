@@ -75,16 +75,29 @@ function App() {
     setPreviewContent({ type: 'loading', data: 'Loading preview...' })
 
     try {
-      const response = await axios.get(`http://localhost:8000/api/download/${fileName}`, {
-        responseType: 'blob'
-      })
-      const mimeType = response.data.type
+      const response = await fetch(`http://localhost:8000/api/download/${fileName}`)
+      
+      if (!response.ok) {
+        throw new Error('Network response was not ok')
+      }
 
-      if (mimeType.startsWith('image/')) {
-        setPreviewContent({ type: 'image', data: URL.createObjectURL(response.data) })
+      const blob = await response.blob()
+      const mimeType = blob.type || ''
+      const fileExt = fileName.split('.').pop().toLowerCase()
+
+      if (mimeType.startsWith('image/') || ['jpg', 'jpeg', 'png', 'svg'].includes(fileExt)) {
+        setPreviewContent({ type: 'image', data: URL.createObjectURL(blob) })
+      } else if (mimeType === 'application/pdf' || fileExt === 'pdf') {
+        setPreviewContent({ type: 'pdf', data: URL.createObjectURL(blob) })
+      } else if (mimeType.startsWith('text/') || ['txt', 'md', 'csv'].includes(fileExt)) {
+        if (blob.size > 2 * 1024 * 1024) {
+          setPreviewContent({ type: 'error', data: 'File is too large for text preview (Max 2MB).' })
+        } else {
+          const textData = await blob.text()
+          setPreviewContent({ type: 'text', data: textData || '(File is empty)' })
+        }
       } else {
-        const text = await response.data.text()
-        setPreviewContent({ type: 'text', data: text })
+        setPreviewContent({ type: 'error', data: 'Preview format not supported.' })
       }
     } catch (error) {
       setPreviewContent({ type: 'error', data: 'Preview not available.' })
@@ -101,6 +114,31 @@ function App() {
 
   const handleDownload = (filename) => {
     window.open(`http://localhost:8000/api/download/${filename}`, '_blank')
+  }
+
+  const handleExportJSON = () => {
+    const exportData = Array.from(approvedFiles).map(fileName => {
+      const fileData = fileList.find(f => (f.filename || f) === fileName) || {}
+      const baseData = typeof fileData === 'string' ? { filename: fileData } : fileData
+      
+      return {
+        ...baseData,
+        operator_notes: fileNotes[fileName] || '',
+        export_timestamp: new Date().toISOString()
+      }
+    })
+
+    const dataStr = JSON.stringify({ exported_vault: exportData }, null, 2)
+    const blob = new Blob([dataStr], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'data_refinery_export.json'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
   }
 
   const handleUpload = async () => {
@@ -208,7 +246,14 @@ function App() {
           <div className="card results-section">
             <div className="results-header">
               <h3>Secured Vault</h3>
-              <span className="badge-success">{fileList.length} Files</span>
+              <div className="header-actions">
+                <span className="badge-success">{fileList.length} Files</span>
+                {approvedFiles.size > 0 && (
+                  <button className="btn-export" onClick={handleExportJSON}>
+                    Export JSON
+                  </button>
+                )}
+              </div>
             </div>
             
             {fileList.length > 0 ? (
@@ -281,6 +326,7 @@ function App() {
                                       {previewContent.type === 'error' && <span className="preview-text error">{previewContent.data}</span>}
                                       {previewContent.type === 'text' && <pre className="preview-text">{previewContent.data}</pre>}
                                       {previewContent.type === 'image' && <img src={previewContent.data} alt="Preview" className="preview-image" />}
+                                      {previewContent.type === 'pdf' && <iframe src={previewContent.data} title="PDF Preview" className="preview-pdf" />}
                                     </div>
                                   </div>
 

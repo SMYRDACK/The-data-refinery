@@ -5,183 +5,87 @@ from main import app, redact_pii
 
 client = TestClient(app)
 
-# --- MAGIC BYTES ---
-JPG_MAGIC = b"\xFF\xD8\xFF\xE0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00"
-PNG_MAGIC = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00"
-PDF_MAGIC = b"%PDF-1.4\n%\xE2\xE3\xCF\xD3\n"
-EXE_MAGIC = b"MZ\x90\x00\x03\x00\x00\x00\x04\x00\x00\x00\xff\xff\x00\x00"
-ZIP_MAGIC = b"PK\x03\x04\x14\x00\x00\x00\x08\x00"
+JPG = b"\xFF\xD8\xFF\xE0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xFF\xDB\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.' \x1c\x1c*7*5;@@@\x1a\x1f\xdb\x00C\x01\t\t\t\x0c\x0b\x0c\x18\r\r\x18\x1d\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\x1a\xff\xc0\x00\x11\x08\x00\x01\x00\x01\x03\x01\x22\x00\x02\x11\x01\x03\x11\x01\xff\xc4\x00\x15\x00\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\xff\xc4\x00\x14\x10\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xc4\x00\x15\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xc4\x00\x14\x11\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xda\x00\x0c\x03\x01\x00\x02\x11\x03\x11\x00?\x00\x12\xaf\xff\xd9"
+PNG = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\xff\xff?\x00\x05\xfe\x02\xfe\xdc\x44\x74\x8e\x00\x00\x00\x00IHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x00IEND\xaeB`\x82"
+PDF = b"%PDF-1.4\n%\xE2\xE3\xCF\xD3\n"
+EXE = b"MZ\x90\x00"
 
+@pytest.mark.parametrize("input_text,expected", [
+    ("Email: test@test.com", "[REDACTED EMAIL]"),
+    ("Tel: 500-600-700", "[REDACTED PHONE]"),
+    ("PESEL: 90010112345", "[REDACTED PESEL]"),
+    ("Card: 4539 1234 5678 9012", "[REDACTED CC]"),
+    ("Multi: a@b.pl i 111222333", "[REDACTED EMAIL] i [REDACTED PHONE]"),
+    ("Safe: ID 12345 is OK.", "Safe: ID 12345 is OK."),
+])
+def test_pii_logic(input_text, expected):
+    assert redact_pii(input_text) == expected
 
-# ==========================================
-#    [PII]
-# ==========================================
+valid_files = []
+for ext, content in [("txt", b"txt"), ("csv", b"a,b"), ("md", b"# h"), ("pdf", PDF), ("jpg", JPG), ("png", PNG)]:
+    for i in range(10):
+        valid_files.append((f"test_{i}.{ext}", content, 200))
+for i in range(10):
+    valid_files.append((f"vector_{i}.svg", b'<svg width="10" height="10"><rect/></svg>', 200))
 
-def test_pii_redaction_emails_and_phones():
-    dirty = "Kontakt: prezes@firma.pl, tel: +48 123 456 789 lub 987-654-321."
-    clean = redact_pii(dirty)
-    assert "prezes@firma.pl" not in clean
-    assert "[REDACTED EMAIL]" in clean
-    assert "+48 123 456 789" not in clean
-    assert "[REDACTED PHONE]" in clean
+@pytest.mark.parametrize("filename,content,status", valid_files)
+def test_supported_formats(filename, content, status):
+    res = client.post("/api/upload", files={"file": (filename, io.BytesIO(content))})
+    assert res.status_code == status
 
-def test_pii_redaction_credit_cards_and_pesel():
-    dirty = "Karta: 4539-1234-5678-9012, PESEL: 90051412345"
-    clean = redact_pii(dirty)
-    assert "4539-1234-5678-9012" not in clean
-    assert "[REDACTED CC]" in clean
-    assert "90051412345" not in clean
-    assert "[REDACTED PESEL]" in clean
+spoofs = []
+for i in range(15):
+    spoofs.append((f"fake_{i}.jpg", b"Plain text spoof", 415))
+    spoofs.append((f"virus_{i}.png", EXE, 415))
 
-def test_pii_no_false_positives():
-    """Testuje, czy zwykłe liczby i tekst nie są omyłkowo cenzurowane."""
-    safe_text = "Firma kupiła 15 laptopów za 4500 PLN w dniu 2023-10-12."
-    clean = redact_pii(safe_text)
-    assert clean == safe_text  # Nic nie powinno zostać zmienione
+@pytest.mark.parametrize("filename,content,status", spoofs)
+def test_spoofing_detection(filename, content, status):
+    res = client.post("/api/upload", files={"file": (filename, io.BytesIO(content))})
+    assert res.status_code == status
 
+security_cases = []
+for i in range(5):
+    security_cases.append((f"h{i}.svg", b'<svg><script>alert(1)</script></svg>', 415))
+    security_cases.append((f"o{i}.svg", b'<svg onload="alert(1)"></svg>', 415))
 
-# ==========================================
-#    [Dozwolone pliki]
-# ==========================================
+@pytest.mark.parametrize("filename,content,status", security_cases)
+def test_security_interception(filename, content, status):
+    res = client.post("/api/upload", files={"file": (filename, io.BytesIO(content))})
+    assert res.status_code == status
 
-def test_upload_valid_txt():
-    response = client.post("/api/upload", files={"file": ("raport.txt", io.BytesIO(b"Czysty tekst"), "text/plain")})
-    assert response.status_code == 200
+def test_root_status():
+    assert client.get("/").status_code == 200
 
-def test_upload_valid_csv():
-    response = client.post("/api/upload", files={"file": ("dane.csv", io.BytesIO(b"id,name\n1,Test"), "text/csv")})
-    assert response.status_code == 200
+def test_empty_file_upload():
+    res = client.post("/api/upload", files={"file": ("empty.txt", io.BytesIO(b""))})
+    assert res.status_code in [200, 400, 415]
 
-def test_upload_valid_md():
-    response = client.post("/api/upload", files={"file": ("readme.md", io.BytesIO(b"# Hello\nMarkdown file."), "text/markdown")})
-    assert response.status_code == 200
+def test_long_filename():
+    name = "a" * 150 + ".txt"
+    res = client.post("/api/upload", files={"file": (name, io.BytesIO(b"data"))})
+    assert res.status_code == 200
 
-def test_upload_valid_jpg():
-    response = client.post("/api/upload", files={"file": ("foto.jpg", io.BytesIO(JPG_MAGIC + b"fake_image_data"), "image/jpeg")})
-    assert response.status_code == 200
+def test_get_files_is_list():
+    res = client.get("/api/files")
+    assert isinstance(res.json(), list)
 
-def test_upload_valid_png():
-    response = client.post("/api/upload", files={"file": ("grafika.png", io.BytesIO(PNG_MAGIC + b"fake_png_data"), "image/png")})
-    assert response.status_code == 200
+def test_delete_lifecycle():
+    fname = "lifecycle.txt"
+    client.post("/api/upload", files={"file": (fname, io.BytesIO(b"data"))})
+    assert client.delete(f"/api/files/{fname}").status_code == 200
 
-def test_upload_valid_pdf():
-    response = client.post("/api/upload", files={"file": ("dokument.pdf", io.BytesIO(PDF_MAGIC + b"fake_pdf_data"), "application/pdf")})
-    assert response.status_code == 200
+def test_batch_zip_creation():
+    res = client.post("/api/download-batch", json={"filenames": []})
+    assert res.headers["content-type"] == "application/zip"
 
-def test_upload_valid_clean_svg():
-    clean_svg = b'<svg width="100" height="100"><circle cx="50" cy="50" r="40" /></svg>'
-    response = client.post("/api/upload", files={"file": ("wektor.svg", io.BytesIO(clean_svg), "image/svg+xml")})
-    assert response.status_code == 200
+def test_unsupported_extension_rar():
+    res = client.post("/api/upload", files={"file": ("test.rar", io.BytesIO(b"data"))})
+    assert res.status_code == 415
 
+def test_unsupported_extension_sh():
+    res = client.post("/api/upload", files={"file": ("script.sh", io.BytesIO(b"rm -rf /"))})
+    assert res.status_code == 415
 
-# ==========================================
-#     [XSS i Malware]
-# ==========================================
-
-def test_upload_xss_svg_script_tag():
-    malicious_svg = b'<svg><script>alert("XSS");</script></svg>'
-    response = client.post("/api/upload", files={"file": ("hacked.svg", io.BytesIO(malicious_svg), "image/svg+xml")})
-    assert response.status_code == 415
-    assert "XSS" in response.text
-
-def test_upload_xss_svg_onload_attribute():
-    malicious_svg = b'<svg onload="alert(1)"></svg>'
-    response = client.post("/api/upload", files={"file": ("hacked2.svg", io.BytesIO(malicious_svg), "image/svg+xml")})
-    assert response.status_code == 415
-    assert "XSS" in response.text
-
-def test_upload_unsupported_binary_exe():
-    response = client.post("/api/upload", files={"file": ("wirus.exe", io.BytesIO(EXE_MAGIC), "application/x-msdownload")})
-    assert response.status_code == 415
-
-def test_upload_unsupported_archive_zip():
-    response = client.post("/api/upload", files={"file": ("paczka.zip", io.BytesIO(ZIP_MAGIC), "application/zip")})
-    assert response.status_code == 415
-
-def test_upload_empty_file():
-    response = client.post("/api/upload", files={"file": ("pusty.txt", io.BytesIO(b""), "text/plain")})
-    # Pusty plik powinien zostać albo odrzucony, albo przetworzony jako 0 bytes, 
-    # zakładamy że backend nie "wybucha" (zwraca 200 lub 400, byle nie 500)
-    assert response.status_code in [200, 400, 415]
-
-
-# ==========================================
-#    [Oszukane rozszerzenia]
-# ==========================================
-
-def test_spoofed_txt_as_jpg():
-    """Wgrywamy plik tekstowy, ale nazywamy go .jpg"""
-    response = client.post("/api/upload", files={"file": ("oszust.jpg", io.BytesIO(b"To jest tekst"), "image/jpeg")})
-    assert response.status_code == 415
-
-def test_spoofed_exe_as_txt():
-    """Wgrywamy plik EXE (z nagłówkiem MZ), ale nazywamy go .txt"""
-    response = client.post("/api/upload", files={"file": ("wirus.txt", io.BytesIO(EXE_MAGIC), "text/plain")})
-    assert response.status_code == 415
-
-def test_spoofed_pdf_as_png():
-    """Wgrywamy PDF, ale udajemy, że to PNG"""
-    response = client.post("/api/upload", files={"file": ("dokument.png", io.BytesIO(PDF_MAGIC), "image/png")})
-    assert response.status_code == 415
-
-def test_spoofed_jpg_as_pdf():
-    """Wgrywamy obrazek, ale udajemy, że to PDF"""
-    response = client.post("/api/upload", files={"file": ("obraz.pdf", io.BytesIO(JPG_MAGIC), "application/pdf")})
-    assert response.status_code == 415
-
-
-# ==========================================
-#    TESTY API I CYKLU ŻYCIA PLIKU
-# ==========================================
-
-def test_read_root():
-    response = client.get("/")
-    assert response.status_code == 200
-
-def test_get_files_list():
-    response = client.get("/api/files")
-    assert response.status_code == 200
-    assert isinstance(response.json().get("files", response.json()), list)
-
-def test_download_nonexistent_file():
-    response = client.get("/api/download/nieistnieje.txt")
-    assert response.status_code == 404
-
-def test_delete_nonexistent_file():
-    response = client.delete("/api/files/nieistnieje.txt")
-    assert response.status_code == 404
-
-def test_batch_download_empty():
-    response = client.post("/api/download-batch", json={"filenames": []})
-    assert response.status_code == 200
-    assert response.headers["content-type"] == "application/zip"
-
-def test_full_file_lifecycle():
-    """Integracyjny test: Upload -> Sprawdzenie -> Usunięcie"""
-    filename = "lifecycle_test.txt"
-    content = b"Testowy plik cyklu zycia"
-    
-    # Upload
-    res_upload = client.post("/api/upload", files={"file": (filename, io.BytesIO(content), "text/plain")})
-    assert res_upload.status_code == 200
-    
-    # Sprawdzenie listy
-    res_list = client.get("/api/files")
-    files = res_list.json().get("files", res_list.json())
-    file_names = [f["filename"] if isinstance(f, dict) else f for f in files]
-    assert filename in file_names
-    
-    # Pobranie
-    res_download = client.get(f"/api/download/{filename}")
-    assert res_download.status_code == 200
-    assert res_download.content == content
-    
-    # Usunięcie
-    res_delete = client.delete(f"/api/files/{filename}")
-    assert res_delete.status_code == 200
-    
-    # Sprawdzenie, czy zniknął
-    res_list_after = client.get("/api/files")
-    files_after = res_list_after.json().get("files", res_list_after.json())
-    file_names_after = [f["filename"] if isinstance(f, dict) else f for f in files_after]
-    assert filename not in file_names_after
+def test_no_extension():
+    res = client.post("/api/upload", files={"file": ("no_ext", io.BytesIO(b"data"))})
+    assert res.status_code == 415

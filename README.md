@@ -2,6 +2,12 @@
 
 *[Polish version below / Polska wersja ponizej]*
 
+🎥 **[CLICK HERE TO WATCH THE DEMO VIDEO (Screencast)] (https://youtu.be/cH1YyNja6Q8)** 🎥
+*(The video covers the full flow, transformation before/after, security XSS/Spoofing tests, and JSON schema explanation).*
+
+🎥 **[KLIKNIJ TUTAJ, ABY OBEJRZEĆ FILM DEMONSTRACYJNY] (https://youtu.be/cH1YyNja6Q8)** 🎥
+*(Film pokazuje pełny przepływ danych, transformację, testy bezpieczeństwa XSS/Spoofing oraz strukturę JSON).*
+
 ## Overview
 The Data Refinery is a high-performance, secure gateway designed to intercept, analyze, and sanitize unstructured data (documents, images, text) before it enters an organization's internal network or database. 
 

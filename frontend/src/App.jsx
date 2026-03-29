@@ -224,13 +224,23 @@ function App() {
   }
 
   const handleExportJSON = () => {
+    const batchId = crypto.randomUUID(); // Unikalny ID całego wsadu/paczki
+    
     const exportData = Array.from(approvedFiles).map(fileName => {
       const fileData = fileList.find(f => (f.filename || f) === fileName) || {}
       const baseData = typeof fileData === 'string' ? { filename: fileData } : fileData
       
+      // Tworzymy relacje - wskazujemy inne pliki z tego samego eksportu
+      const related = Array.from(approvedFiles).filter(f => f !== fileName);
+      
       return {
-        id: crypto.randomUUID(),
+        document_id: crypto.randomUUID(),
+        batch_id: batchId,
         source_origin: "Gateway_Upload_Terminal_01",
+        relations: {
+          part_of_batch: true,
+          related_files: related
+        },
         ...baseData,
         operator_notes: fileNotes[fileName] || 'No extra context provided.',
         export_timestamp: new Date().toISOString()
@@ -238,7 +248,8 @@ function App() {
     })
 
     const vaultSchema = {
-      schema_version: "1.0",
+      schema_version: "1.2",
+      export_session_id: batchId,
       total_files: exportData.length,
       exported_vault: exportData
     }
@@ -249,7 +260,7 @@ function App() {
     
     const link = document.createElement('a')
     link.href = url
-    link.download = 'data_refinery_export.json'
+    link.download = `data_refinery_export_${batchId.split('-')[0]}.json`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)

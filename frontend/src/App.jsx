@@ -12,9 +12,17 @@ function App() {
   
   const [approvedFiles, setApprovedFiles] = useState(new Set())
   const [fileNotes, setFileNotes] = useState({})
+  
   const [previewContent, setPreviewContent] = useState({ type: 'idle', data: null, isEditing: false, editBuffer: '' })
+  
+  const [isDrawing, setIsDrawing] = useState(false)
+  const [editTool, setEditTool] = useState('brush') 
+  const [editColor, setEditColor] = useState('#000000')
+  const [canvasSnapshot, setCanvasSnapshot] = useState(null)
 
   const fileInputRef = useRef(null)
+  const canvasRef = useRef(null)
+  const startPosRef = useRef({ x: 0, y: 0 })
 
   const fetchFiles = async () => {
     try {
@@ -29,6 +37,73 @@ function App() {
   useEffect(() => {
     fetchFiles()
   }, [])
+
+  useEffect(() => {
+    if (previewContent.isEditing && previewContent.type === 'image' && canvasRef.current) {
+      const canvas = canvasRef.current
+      const ctx = canvas.getContext('2d')
+      const img = new Image()
+      img.onload = () => {
+        canvas.width = img.width
+        canvas.height = img.height
+        ctx.drawImage(img, 0, 0)
+        ctx.lineCap = 'round'
+        ctx.lineJoin = 'round'
+      }
+      img.src = previewContent.data
+    }
+  }, [previewContent.isEditing, previewContent.data, previewContent.type])
+
+  const startDrawing = (e) => {
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+    const rect = canvas.getBoundingClientRect()
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    const x = (e.clientX - rect.left) * scaleX
+    const y = (e.clientY - rect.top) * scaleY
+
+    ctx.strokeStyle = editColor
+    ctx.fillStyle = editColor
+    ctx.lineWidth = Math.max(canvas.width * 0.015, 5)
+
+    if (editTool === 'rect') {
+      setCanvasSnapshot(ctx.getImageData(0, 0, canvas.width, canvas.height))
+      startPosRef.current = { x, y }
+    } else {
+      ctx.beginPath()
+      ctx.moveTo(x, y)
+    }
+    setIsDrawing(true)
+  }
+
+  const draw = (e) => {
+    if (!isDrawing) return
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+    const rect = canvas.getBoundingClientRect()
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    const x = (e.clientX - rect.left) * scaleX
+    const y = (e.clientY - rect.top) * scaleY
+
+    if (editTool === 'rect') {
+      ctx.putImageData(canvasSnapshot, 0, 0)
+      const width = x - startPosRef.current.x
+      const height = y - startPosRef.current.y
+      ctx.fillRect(startPosRef.current.x, startPosRef.current.y, width, height)
+    } else {
+      ctx.lineTo(x, y)
+      ctx.stroke()
+    }
+  }
+
+  const stopDrawing = () => {
+    setIsDrawing(false)
+    if (canvasRef.current && editTool === 'brush') {
+      canvasRef.current.getContext('2d').closePath()
+    }
+  }
 
   const handleFileChange = (e) => {
     if (e.target.files?.length) {
@@ -75,13 +150,12 @@ function App() {
     setPreviewContent({ type: 'loading', data: 'Loading preview...', isEditing: false, editBuffer: '' })
 
     try {
-      const response = await fetch(`http://localhost:8000/api/download/${fileName}`)
+      const timestamp = new Date().getTime()
+      const response = await axios.get(`http://localhost:8000/api/download/${encodeURIComponent(fileName)}?t=${timestamp}`, {
+        responseType: 'blob'
+      })
       
-      if (!response.ok) {
-        throw new Error('Network response was not ok')
-      }
-
-      const blob = await response.blob()
+      const blob = response.data
       const mimeType = blob.type || ''
       const fileExt = fileName.split('.').pop().toLowerCase()
 
@@ -93,23 +167,42 @@ function App() {
         if (blob.size > 2 * 1024 * 1024) {
           setPreviewContent({ type: 'error', data: 'File is too large for text preview (Max 2MB).', isEditing: false, editBuffer: '' })
         } else {
-          const textData = await blob.text()
-          setPreviewContent({ type: 'text', data: textData || '(File is empty)', isEditing: false, editBuffer: textData || '' })
+          const reader = new FileReader()
+          reader.onload = (e) => {
+            const textResult = e.target.result || '(File is empty)'
+            setPreviewContent({ type: 'text', data: textResult, isEditing: false, editBuffer: textResult })
+          }
+          reader.onerror = () => {
+            setPreviewContent({ type: 'error', data: 'Failed to read text locally.', isEditing: false, editBuffer: '' })
+          }
+          reader.readAsText(blob)
         }
       } else {
         setPreviewContent({ type: 'error', data: 'Preview format not supported.', isEditing: false, editBuffer: '' })
       }
     } catch (error) {
-      setPreviewContent({ type: 'error', data: 'Preview not available.', isEditing: false, editBuffer: '' })
+      console.error(error)
+      setPreviewContent({ type: 'error', data: `Preview not available (${error.message})`, isEditing: false, editBuffer: '' })
     }
   }
 
   const handleSaveEdit = async (fileName) => {
+    let payloadContent = previewContent.editBuffer
+
+    if (previewContent.type === 'image') {
+      payloadContent = canvasRef.current.toDataURL('image/jpeg', 0.9)
+    }
+
     try {
-      await axios.put(`http://localhost:8000/api/files/${fileName}`, {
-        content: previewContent.editBuffer
+      await axios.put(`http://localhost:8000/api/files/${encodeURIComponent(fileName)}`, {
+        content: payloadContent
       })
-      setPreviewContent({ ...previewContent, data: previewContent.editBuffer, isEditing: false })
+      
+      setPreviewContent({ 
+        ...previewContent, 
+        data: previewContent.type === 'image' ? payloadContent : previewContent.editBuffer, 
+        isEditing: false 
+      })
       fetchFiles()
     } catch (error) {
       console.error(error)
@@ -126,7 +219,8 @@ function App() {
   }
 
   const handleDownload = (filename) => {
-    window.open(`http://localhost:8000/api/download/${filename}`, '_blank')
+    const timestamp = new Date().getTime()
+    window.open(`http://localhost:8000/api/download/${encodeURIComponent(filename)}?t=${timestamp}`, '_blank')
   }
 
   const handleExportJSON = () => {
@@ -364,14 +458,56 @@ function App() {
                                             <>
                                               <pre className="preview-text">{previewContent.data}</pre>
                                               <div className="editor-actions">
-                                                <button className="action-btn" onClick={() => setPreviewContent({ ...previewContent, isEditing: true })}>Edit Data</button>
+                                                <button className="action-btn" onClick={() => setPreviewContent({ ...previewContent, isEditing: true })}>Edit Text (Redact)</button>
                                               </div>
                                             </>
                                           )}
                                         </div>
                                       )}
 
-                                      {previewContent.type === 'image' && <img src={previewContent.data} alt="Preview" className="preview-image" />}
+                                      {previewContent.type === 'image' && (
+                                        <div className="text-editor-container">
+                                          {previewContent.isEditing ? (
+                                            <>
+                                              <div className="canvas-toolbar">
+                                                <div className="toolbar-group">
+                                                  <label>Tool:</label>
+                                                  <select value={editTool} onChange={(e) => setEditTool(e.target.value)}>
+                                                    <option value="brush">Freehand Brush</option>
+                                                    <option value="rect">Solid Rectangle</option>
+                                                  </select>
+                                                </div>
+                                                <div className="toolbar-group">
+                                                  <label>Color:</label>
+                                                  <input type="color" value={editColor} onChange={(e) => setEditColor(e.target.value)} />
+                                                </div>
+                                              </div>
+                                              <div className="canvas-wrapper">
+                                                <canvas
+                                                  ref={canvasRef}
+                                                  className="preview-canvas"
+                                                  onMouseDown={startDrawing}
+                                                  onMouseMove={draw}
+                                                  onMouseUp={stopDrawing}
+                                                  onMouseLeave={stopDrawing}
+                                                />
+                                              </div>
+                                              <div className="editor-actions">
+                                                <button className="action-btn" onClick={() => setPreviewContent({ ...previewContent, isEditing: false })}>Cancel</button>
+                                                <button className="action-btn approve-btn" onClick={() => handleSaveEdit(fileName)}>Save Changes</button>
+                                              </div>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <img src={previewContent.data} alt="Preview" className="preview-image" />
+                                              <div className="editor-actions">
+                                                <button className="action-btn" onClick={() => setPreviewContent({ ...previewContent, isEditing: true })}>Edit Image (Redact)</button>
+                                              </div>
+                                            </>
+                                          )}
+                                        </div>
+                                      )}
+
                                       {previewContent.type === 'pdf' && <iframe src={previewContent.data} title="PDF Preview" className="preview-pdf" />}
                                     </div>
                                   </div>

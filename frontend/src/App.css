@@ -270,6 +270,19 @@ body {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.85rem;
+  table-layout: fixed;
+}
+
+.data-table th:nth-child(1) {
+  width: 45%;
+}
+
+.data-table th:nth-child(2) {
+  width: 25%;
+}
+
+.data-table th:nth-child(3) {
+  width: 30%;
 }
 
 .data-table th {
@@ -290,7 +303,7 @@ body {
 
 .file-cell {
   font-weight: 600;
-  max-width: 200px;
+  max-width: 100%;
   position: relative;
   cursor: default;
   overflow: visible;
@@ -350,6 +363,7 @@ body {
   border-radius: 4px;
   font-size: 0.65rem;
   font-weight: 800;
+  white-space: nowrap;
 }
 
 .status-badge.safe {
@@ -368,6 +382,10 @@ body {
   text-align: right;
 }
 
+.actions-cell {
+  white-space: nowrap;
+}
+
 .action-btn {
   background: transparent;
   border: 1px solid var(--border);
@@ -378,6 +396,7 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   margin-left: 6px;
+  margin-bottom: 4px;
   cursor: pointer;
   transition: 0.2s;
 }
@@ -400,12 +419,16 @@ body {
 .details-row td {
   padding: 0;
   border-bottom: 1px solid var(--border);
+  max-width: 0;
 }
 
 .details-pane {
   background-color: var(--status-bg);
   padding: 1.5rem;
   animation: slideIn 0.25s ease-out;
+  box-sizing: border-box;
+  width: 100%;
+  overflow: hidden;
 }
 
 .details-grid {
@@ -462,6 +485,7 @@ body {
   border-radius: 6px;
   background-color: var(--card-bg);
   padding: 1rem;
+  box-sizing: border-box;
 }
 
 .preview-pdf {
@@ -510,6 +534,7 @@ body {
   font-family: inherit;
   font-size: 0.85rem;
   resize: vertical;
+  box-sizing: border-box;
 }
 
 .notes-input:focus {
@@ -535,6 +560,7 @@ body {
   font-family: monospace;
   font-size: 0.8rem;
   resize: vertical;
+  box-sizing: border-box;
 }
 
 .preview-textarea:focus {
@@ -547,6 +573,87 @@ body {
   justify-content: flex-end;
   gap: 0.5rem;
   margin-top: 0.5rem;
+}
+
+.canvas-toolbar {
+  display: flex;
+  gap: 1rem;
+  padding: 0.8rem;
+  background-color: var(--status-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.toolbar-group label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.canvas-toolbar select,
+.canvas-toolbar input[type="color"] {
+  padding: 0.3rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background-color: var(--card-bg);
+  color: var(--text-primary);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.canvas-toolbar input[type="color"] {
+  height: 30px;
+  width: 40px;
+  padding: 0;
+}
+
+.canvas-wrapper {
+  position: relative;
+  width: 100%;
+  text-align: center;
+  background: var(--dropzone-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.kaiju-theme .canvas-wrapper {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.preview-canvas {
+  max-width: 100%;
+  height: auto;
+  cursor: crosshair;
+  touch-action: none;
+  display: block;
+  margin: 0 auto;
+}
+
+.canvas-instructions {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  pointer-events: none;
 }
 
 @keyframes slideIn {

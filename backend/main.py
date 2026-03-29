@@ -7,6 +7,7 @@ import filetype
 import shutil
 import os
 import re
+import base64
 
 app = FastAPI(
     title="The Data Refinery API",
@@ -143,8 +144,14 @@ async def update_file(filename: str, file_data: FileContent):
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Not found")
     try:
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(file_data.content)
+        if file_data.content.startswith("data:image"):
+            header, encoded = file_data.content.split(",", 1)
+            data = base64.b64decode(encoded)
+            with open(file_path, "wb") as f:
+                f.write(data)
+        else:
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(file_data.content)
         return {"status": "success", "message": "File updated successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -33,6 +33,41 @@ Because even enterprise security tools can have a soul. Toggle "INIT KAIJU MODE"
 
 ---
 
+## System Architecture
+
+The Data Refinery operates on a decoupled, containerized architecture ensuring high isolation and rapid processing.
+
+```text
+[ Raw Unstructured Data ] (PDF, JPG, SVG, etc.)
+           │
+           ▼
+┌──────────────────────────────────────────┐
+│          FRONTEND (React + Vite)         │
+│  - Canvas Operator Vault (Visual Editor) │
+│  - Payload construction & Batch control  │
+└──────────────────────────────────────────┘
+           │ (REST API / JSON / Form-Data)
+           ▼
+┌──────────────────────────────────────────┐
+│         BACKEND (FastAPI + Python)       │
+│  ┌────────────────────────────────────┐  │
+│  │ 🛡️ Security Layer                  │  │
+│  │ - Magic Bytes Validation           │  │
+│  │ - XSS & Malware Interception       │  │
+│  └────────────────────────────────────┘  │
+│  ┌────────────────────────────────────┐  │
+│  │ 🧼 Transformation Engine           │  │
+│  │ - Pillow (EXIF removal, Image Ops) │  │
+│  │ - Regex (PII Redaction Engine)     │  │
+│  └────────────────────────────────────┘  │
+└──────────────────────────────────────────┘
+           │
+           ▼
+[ Standardized Data Vault ] (Clean JSON & ZIP)
+```
+
+---
+
 ## Quick Start (How to run)
 
 You do not need Python or Node.js installed. The entire environment is containerized.
@@ -111,6 +146,41 @@ Nawet korporacyjne narzedzia bezpieczenstwa moga miec dusze. Uzyj przycisku "INI
 * **Backend:** Python + FastAPI, Uvicorn (Asynchroniczne i wydajne API)
 * **Walidacja:** filetype (weryfikacja Magic Bytes).
 * **Infrastruktura:** Pelna konteneryzacja (Docker Compose) gwarantujaca bezproblemowe uruchomienie na kazdym systemie.
+
+---
+
+## Architektura Systemu
+
+The Data Refinery działa w oparciu o rozdzieloną (decoupled), skonteneryzowaną architekturę, co gwarantuje wysoką izolację procesów i błyskawiczne przetwarzanie danych.
+
+```text
+[ Surowe, Nieustrukturyzowane Dane ] (PDF, JPG, SVG, itp.)
+           │
+           ▼
+┌──────────────────────────────────────────────┐
+│           FRONTEND (React + Vite)            │
+│  - Krypta Operatora (Wizualny Edytor Canvas) │
+│  - Budowanie payloadu i kontrola wsadowa     │
+└──────────────────────────────────────────────┘
+           │ (REST API / JSON / Form-Data)
+           ▼
+┌──────────────────────────────────────────────┐
+│          BACKEND (FastAPI + Python)          │
+│  ┌────────────────────────────────────────┐  │
+│  │ 🛡️ Warstwa Bezpieczeństwa              │  │
+│  │ - Walidacja Magic Bytes                │  │
+│  │ - Przechwytywanie XSS i Malware        │  │
+│  └────────────────────────────────────────┘  │
+│  ┌────────────────────────────────────────┐  │
+│  │ 🧼 Silnik Transformacji                │  │
+│  │ - Pillow (Usuwanie EXIF, Obrazy)       │  │
+│  │ - Regex (Silnik Redakcji PII)          │  │
+│  └────────────────────────────────────────┘  │
+└──────────────────────────────────────────────┘
+           │
+           ▼
+[ Ustandaryzowana Paczka Danych ] (Czysty JSON & ZIP)
+```
 
 ---
 

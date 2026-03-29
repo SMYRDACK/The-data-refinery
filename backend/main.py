@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from PIL import Image
 import filetype
 import shutil
@@ -31,6 +32,9 @@ ALLOWED_MIMETYPES = [
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+class FileContent(BaseModel):
+    content: str
 
 def redact_pii(text: str) -> str:
     text = re.sub(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', '[REDACTED EMAIL]', text)
@@ -132,3 +136,15 @@ async def download_file(filename: str):
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Not found")
     return FileResponse(path=file_path, filename=filename)
+
+@app.put("/api/files/{filename}")
+async def update_file(filename: str, file_data: FileContent):
+    file_path = os.path.join(UPLOAD_DIR, filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Not found")
+    try:
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(file_data.content)
+        return {"status": "success", "message": "File updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
